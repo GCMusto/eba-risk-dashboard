@@ -1,7 +1,7 @@
 # app.R
 
 # Check and load required packages
-pkgs <- c("shiny", "plotly", "readxl", "dplyr", "stringr", "bslib")
+pkgs <- c("shiny", "plotly", "readxl", "dplyr", "stringr", "bslib", "countrycode")
 missing_pkgs <- pkgs[!pkgs %in% installed.packages()]
 if (length(missing_pkgs)) install.packages(missing_pkgs)
 invisible(lapply(pkgs, library, character.only = TRUE))
@@ -24,9 +24,10 @@ df <- df %>%
     Year = substr(Period, 1, 4),
     Quarter = paste0("Q", as.integer(substr(Period, 5, 6))/3),
     PeriodLabel = paste0(Year, "-", Quarter),
-    Ratio = as.numeric(Ratio)
+    Ratio = as.numeric(Ratio),
+    CountryName = countrycode(Country, origin="iso2c", destination = "country.name", custom_match = c(EU = "European Union"), warn = TRUE)
   ) %>%
-  arrange(Year, Quarter)
+  arrange(desc(Year), desc(Quarter))
 
 # --- UI ---
 ui <- fluidPage(
@@ -70,8 +71,10 @@ ui <- fluidPage(
 	  sidebarPanel(
 	    selectInput("indicatorTrend", "Select indicator:",
 			choices = sort(unique(df$Name))),
-	    selectInput("country", "Select country:",
-			choices = sort(unique(df$Country))),
+	    selectInput("country", "Select country (one or more):",
+			choices = sort(unique(df$CountryName)),
+			multiple = TRUE,
+			selected = "Italy"),
 	    width = 3
 	  ),
 	  mainPanel(
@@ -103,7 +106,7 @@ server <- function(input, output, session) {
              " | Max = ", scales::percent(max(plot_df$Ratio, na.rm = TRUE), 0.1),
              " (", plot_df$Country[which.max(plot_df$Ratio)], ")",
              " | Min = ", scales::percent(min(plot_df$Ratio, na.rm = TRUE), 0.1),
-             " (", plot_df$Country[which.min(plot_df$Ratio)], ")")
+             " (", plot_df$CountryName[which.min(plot_df$Ratio)], ")")
     )
   })
 
@@ -111,14 +114,14 @@ server <- function(input, output, session) {
     plot_df <- filtered_overview()
     validate(need(nrow(plot_df) > 0, "No data found for this combination."))
 
-    p <- ggplot(plot_df, aes(x = reorder(Country, Ratio), y = Ratio,
-                             fill = Ratio,
-                             text = paste0(Country, ": ", scales::percent(Ratio, 0.1)))) +
+    p <- ggplot(plot_df, aes(x = reorder(CountryName, Ratio), y = Ratio,
+                             fill = ifelse(CountryName == "European Union", "EU", "Other"),
+                             text = paste0(CountryName, ": ", scales::percent(Ratio, 0.1)))) +
       geom_col() +
-      scale_fill_gradient(low = "#A9CCE3", high = "#21618C") +
+      scale_fill_manual(values = c("EU" = "#F39C12", "Other" = "#2E86AB"), guide = "none") +
       coord_flip() +
       labs(x = NULL, y = "Ratio", title = input$indicator) +
-      theme_minimal(base_size = 14) +
+      theme_minimal(base_size = 10) +
       theme(legend.position = "none")
     ggplotly(p, tooltip = "text")
   })
@@ -131,7 +134,7 @@ server <- function(input, output, session) {
   # --- Trends tab ---
   filtered_trend <- reactive({
     df %>%
-      filter(Name == input$indicatorTrend, Country == input$country)
+      filter(Name == input$indicatorTrend, CountryName %in% input$country)
   })
 
   output$trendPlot <- renderPlotly({
@@ -142,20 +145,23 @@ server <- function(input, output, session) {
     plot_df <- plot_df %>%
       mutate(PeriodLabel = factor(PeriodLabel, levels = unique(df$PeriodLabel)))
 
-    p <- ggplot(plot_df, aes(x = PeriodLabel, y = Ratio,
-                             text = paste0(PeriodLabel, "<br>Ratio: ", 
-                                           scales::percent(Ratio, 0.1)))) +
-      geom_line(color = "#2E86AB", linewidth = 1.2, group = 1) +
-      geom_point(color = "#1B4F72", size = 1.5) +
+    p <- ggplot(plot_df, aes(x = PeriodLabel, y = Ratio, color = CountryName, group = CountryName,
+                             text = paste0("Country: ", CountryName,
+					   "<br>Period: ", PeriodLabel,
+					   "<br>Ratio: ", scales::percent(Ratio, 0.1)))) +
+      geom_line(linewidth = 1.1) +
+      geom_point(size = 1.5) +
       labs(x = "Period", y = "Ratio",
-           title = paste(input$indicatorTrend, "–", input$country)) +
-      theme_minimal(base_size = 14) +
+           title = input$indicatorTrend) +
+      theme_minimal(base_size = 10) +
+      scale_color_brewer(palette = "Pastel2") +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
     ggplotly(p, tooltip = "text")
   })
 
   output$trendCaption <- renderText({
-    paste0("Trend of ", input$indicatorTrend, " for ", input$country, 
+    country_list <- paste0(input$country, collapse = ", ")
+    paste0("Trend of ", input$indicatorTrend, " for ", country_list, 
            " across available quarters in the EBA Risk Dashboard.")
   })
 }
