@@ -3,6 +3,7 @@ download_eba_annex <- function(quarter = NULL, annex_type = c("Data", "KRI"), de
 	# Check and load required packages
 	pkgs <- c("stringr", "httr", "rvest", "utils")
 	missing_pkgs <- pkgs[!pkgs %in% installed.packages()]
+	if (length(missing_pkgs)) install.packages(missing_pkgs)
 	invisible(lapply(pkgs, library, character.only = TRUE))
 
 	annex_type <- match.arg(annex_type)
