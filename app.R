@@ -30,50 +30,60 @@ df <- df %>%
 
 # --- UI ---
 ui <- fluidPage(
-  theme = bs_theme(bootswatch = "flatly", primary = "#2E86AB"),
+  title = "EBA Risk Dashboard",
+  theme = bs_theme(bootswatch = "flatly", primary = "#2E86AB", bg = "white", fg = "#222"),
+  tags$style(HTML("
+    .well {
+      background-color: #FDFDFD !important;
+      border: 1px solid #E1E1E1 !important;
+      box-shadow: none !important;
+    }
+  ")),
   titlePanel(div(
     h3("📊 EBA Risk Dashboard", style = "margin-bottom:0"),
     h5("Interactive key risk indicators by country", style = "color:gray")
   )),
 
-  tabsetPanel(
-    tabPanel("Overview by country",
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("indicator", "Select indicator:",
-                      choices = sort(unique(df$Name))),
-          selectInput("period", "Select period:",
-                      choices = unique(df$PeriodLabel)),
-          width = 3
-        ),
-        mainPanel(
-          uiOutput("summaryBox"),
-          plotlyOutput("barPlot", height = "600px"),
-          br(),
-          textOutput("caption")
-        )
-      )
-    ),
+  div(
+    style = "margin-top: 25px",
+    tabsetPanel(
+      tabPanel("Overview by country",
+	sidebarLayout(
+	  sidebarPanel(
+	    selectInput("indicator", "Select indicator:",
+			choices = sort(unique(df$Name))),
+	    selectInput("period", "Select period:",
+			choices = unique(df$PeriodLabel)),
+	    width = 3
+	  ),
+	  mainPanel(
+	    uiOutput("summaryBox"),
+	    plotlyOutput("barPlot", height = "600px"),
+	    br(),
+	    textOutput("caption")
+	  )
+	)
+      ),
 
-    tabPanel("Trends over time",
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("indicatorTrend", "Select indicator:",
-                      choices = sort(unique(df$Name))),
-          selectInput("country", "Select country:",
-                      choices = sort(unique(df$Country))),
-          width = 3
-        ),
-        mainPanel(
-          plotlyOutput("trendPlot", height = "600px"),
-          br(),
-          textOutput("trendCaption")
-        )
+      tabPanel("Trends over time",
+	sidebarLayout(
+	  sidebarPanel(
+	    selectInput("indicatorTrend", "Select indicator:",
+			choices = sort(unique(df$Name))),
+	    selectInput("country", "Select country:",
+			choices = sort(unique(df$Country))),
+	    width = 3
+	  ),
+	  mainPanel(
+	    plotlyOutput("trendPlot", height = "600px"),
+	    br(),
+	    textOutput("trendCaption")
+	  )
+	)
       )
     )
   )
 )
-
 
 # --- SERVER ---
 server <- function(input, output, session) {
@@ -135,8 +145,8 @@ server <- function(input, output, session) {
     p <- ggplot(plot_df, aes(x = PeriodLabel, y = Ratio,
                              text = paste0(PeriodLabel, "<br>Ratio: ", 
                                            scales::percent(Ratio, 0.1)))) +
-      geom_line(color = "#2E86AB", size = 1.2, group = 1) +
-      geom_point(color = "#1B4F72", size = 2) +
+      geom_line(color = "#2E86AB", linewidth = 1.2, group = 1) +
+      geom_point(color = "#1B4F72", size = 1.5) +
       labs(x = "Period", y = "Ratio",
            title = paste(input$indicatorTrend, "–", input$country)) +
       theme_minimal(base_size = 14) +
